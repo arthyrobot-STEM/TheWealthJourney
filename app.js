@@ -1,556 +1,596 @@
-const STORAGE_KEY = 'rise-to-riches-save';
-const app = {
-  money: 100,
-  xp: 0,
-  level: 1,
-  income: 0,
-  expenses: 0,
-  status: 'Poor',
-  assets: {
-    cars: [],
-    houses: [],
-    fashion: [],
-    businesses: []
-  },
-  history: [],
-  event: null,
-  opportunity: null,
-  currentJob: null,
-  shopCategory: 'cars',
-  character: {
-    name: 'Rico',
-    skin: 'tan',
-    style: 'casual'
-  }
+const STORAGE_KEY = "rise-to-riches-v2";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const ranks = [
+  { name: "Poor", min: 0 },
+  { name: "Worker", min: 1000 },
+  { name: "Businessman", min: 25000 },
+  { name: "Millionaire", min: 1000000 },
+  { name: "Billionaire", min: 1000000000 }
+];
+
+const rarityStyles = {
+  Common: "border-slate-500/30 bg-slate-500/10 text-slate-200",
+  Rare: "border-cyan-400/40 bg-cyan-400/10 text-cyan-200",
+  Epic: "border-fuchsia-400/40 bg-fuchsia-400/10 text-fuchsia-200",
+  Legendary: "border-amber-300/50 bg-amber-300/12 text-amber-200"
 };
+
+const actions = [
+  { id: "job", icon: "💼", title: "Work a Job", subtitle: "Low risk, steady cash", reward: [25, 55], xp: 14, risk: 0, unlock: 1 },
+  { id: "side", icon: "🛵", title: "Side Hustle", subtitle: "Fast gigs with surprise tips", reward: [55, 140], xp: 24, risk: 0.14, loss: [10, 35], unlock: 1 },
+  { id: "cars", icon: "🚗", title: "Flip a Car", subtitle: "Buy cheap, sell higher", reward: [220, 650], xp: 45, risk: 0.3, loss: [80, 260], unlock: 3 },
+  { id: "stocks", icon: "📈", title: "Stock Trade", subtitle: "Balanced market risk", reward: [260, 900], xp: 50, risk: 0.32, loss: [120, 420], unlock: 4 },
+  { id: "crypto", icon: "🪙", title: "Crypto Bet", subtitle: "Big swings, big dopamine", reward: [600, 2200], xp: 78, risk: 0.48, loss: [260, 950], unlock: 6 },
+  { id: "property", icon: "🏠", title: "Property Deal", subtitle: "Flip contracts for profit", reward: [1300, 4800], xp: 110, risk: 0.38, loss: [600, 1800], unlock: 9 },
+  { id: "gamble", icon: "🎲", title: "High Roller", subtitle: "Double or disaster", reward: [5000, 16000], xp: 160, risk: 0.56, loss: [2500, 9000], unlock: 13 }
+];
 
 const shopItems = {
   cars: [
-    { id: 'beat-up-car', name: 'Used Sedan', price: 120, bonus: 0, level: 1, type: 'Cars' },
-    { id: 'leather-sedan', name: 'Leather Sedan', price: 450, bonus: 2, level: 3, type: 'Cars' },
-    { id: 'sport-coupe', name: 'Sport Coupe', price: 1200, bonus: 6, level: 6, type: 'Cars' },
-    { id: 'luxury-suv', name: 'Luxury SUV', price: 4500, bonus: 15, level: 9, type: 'Cars' },
-    { id: 'supercar', name: 'Supercar', price: 12000, bonus: 35, level: 13, type: 'Cars' }
+    { id: "bike", icon: "🚲", name: "Delivery Bike", price: 180, income: 0.08, xp: 20, rarity: "Common", level: 1 },
+    { id: "sedan", icon: "🚗", name: "Used Sedan", price: 750, income: 0.28, xp: 38, rarity: "Common", level: 2 },
+    { id: "sports", icon: "🏎️", name: "Sports Coupe", price: 8500, income: 1.7, xp: 95, rarity: "Rare", level: 6 },
+    { id: "lambo", icon: "🐂", name: "Lamborghini", price: 85000, income: 9.5, xp: 260, rarity: "Epic", level: 12 },
+    { id: "hypercar", icon: "🚀", name: "Golden Hypercar", price: 900000, income: 58, xp: 700, rarity: "Legendary", level: 20 }
   ],
   houses: [
-    { id: 'starter-apartment', name: 'Starter Apartment', price: 500, bonus: 1, level: 1, type: 'Houses' },
-    { id: 'city-loft', name: 'City Loft', price: 1500, bonus: 4, level: 4, type: 'Houses' },
-    { id: 'suburban-house', name: 'Suburban House', price: 4200, bonus: 10, level: 7, type: 'Houses' },
-    { id: 'mansion', name: 'Mansion', price: 12000, bonus: 28, level: 11, type: 'Houses' }
+    { id: "room", icon: "🛏️", name: "Tiny Room", price: 400, income: 0.12, xp: 24, rarity: "Common", level: 1 },
+    { id: "apartment", icon: "🏢", name: "Apartment", price: 3500, income: 0.8, xp: 70, rarity: "Rare", level: 4 },
+    { id: "house", icon: "🏠", name: "Suburban House", price: 28000, income: 4.2, xp: 160, rarity: "Rare", level: 9 },
+    { id: "mansion", icon: "🏰", name: "Mansion", price: 250000, income: 22, xp: 420, rarity: "Epic", level: 16 },
+    { id: "island", icon: "🌴", name: "Private Island", price: 5000000, income: 210, xp: 1200, rarity: "Legendary", level: 28 }
   ],
   fashion: [
-    { id: 'basic-tee', name: 'Basic Tee', price: 50, bonus: 0, level: 1, type: 'Fashion' },
-    { id: 'designer-bag', name: 'Designer Bag', price: 750, bonus: 3, level: 5, type: 'Fashion' },
-    { id: 'premium-suit', name: 'Premium Suit', price: 1800, bonus: 8, level: 8, type: 'Fashion' },
-    { id: 'luxury-watch', name: 'Luxury Watch', price: 4200, bonus: 16, level: 12, type: 'Fashion' }
+    { id: "chain", icon: "⛓️", name: "Silver Chain", price: 120, income: 0.03, xp: 18, rarity: "Common", level: 1 },
+    { id: "bag", icon: "👜", name: "Designer Bag", price: 1400, income: 0.35, xp: 44, rarity: "Rare", level: 3 },
+    { id: "watch", icon: "⌚", name: "Luxury Watch", price: 12000, income: 2.5, xp: 120, rarity: "Epic", level: 8 },
+    { id: "crown", icon: "👑", name: "Diamond Crown", price: 450000, income: 38, xp: 620, rarity: "Legendary", level: 19 }
   ],
   businesses: [
-    { id: 'food-cart', name: 'Food Cart', price: 900, bonus: 8, level: 2, type: 'Businesses' },
-    { id: 'coffee-shop', name: 'Coffee Shop', price: 3200, bonus: 18, level: 7, type: 'Businesses' },
-    { id: 'ecommerce-store', name: 'E-commerce Brand', price: 8800, bonus: 35, level: 12, type: 'Businesses' }
+    { id: "cart", icon: "🌭", name: "Food Cart", price: 950, income: 0.65, xp: 45, rarity: "Common", level: 2 },
+    { id: "garage", icon: "🔧", name: "Car Garage", price: 9500, income: 3.2, xp: 130, rarity: "Rare", level: 7 },
+    { id: "coffee", icon: "☕", name: "Coffee Chain", price: 65000, income: 13, xp: 300, rarity: "Epic", level: 12 },
+    { id: "startup", icon: "💻", name: "Tech Startup", price: 600000, income: 75, xp: 850, rarity: "Legendary", level: 22 },
+    { id: "empire", icon: "🏦", name: "Global Holdings", price: 12000000, income: 520, xp: 2200, rarity: "Legendary", level: 34 }
   ]
 };
 
-const statusRules = [
-  { status: 'Elite', min: 50000 },
-  { status: 'Rich', min: 15000 },
-  { status: 'Middle Class', min: 5000 },
-  { status: 'Poor', min: 0 }
+const missions = [
+  { id: "cash1k", text: "Reach $1,000", reward: 250, xp: 50, done: s => s.money >= 1000 },
+  { id: "firstCar", text: "Buy your first car", reward: 500, xp: 70, done: s => s.inventory.cars.length >= 1 },
+  { id: "level5", text: "Reach Level 5", reward: 900, xp: 90, done: s => s.level >= 5 },
+  { id: "business", text: "Own a business", reward: 1800, xp: 140, done: s => s.inventory.businesses.length >= 1 },
+  { id: "millionaire", text: "Become a Millionaire", reward: 100000, xp: 1200, done: s => getNetWorth(s) >= 1000000 }
 ];
 
-const jobOffers = [
-  { id: 'intern', name: 'Intern Assistant', salaryRange: [15, 25], reqLevel: 1, reqNetWorth: 0, xp: 12, description: 'Gain experience with consistent pay.' },
-  { id: 'salesRep', name: 'Sales Representative', salaryRange: [45, 70], reqLevel: 3, reqNetWorth: 800, xp: 22, description: 'Use charm to earn commission.' },
-  { id: 'realEstateAgent', name: 'Real Estate Agent', salaryRange: [90, 130], reqLevel: 6, reqNetWorth: 2400, xp: 35, description: 'Help clients buy homes and earn bigger checks.' },
-  { id: 'investmentAnalyst', name: 'Investment Analyst', salaryRange: [150, 210], reqLevel: 10, reqNetWorth: 6400, xp: 50, description: 'Manage portfolios and find market gains.' },
-  { id: 'luxuryManager', name: 'Luxury Brand Manager', salaryRange: [240, 320], reqLevel: 14, reqNetWorth: 14000, xp: 70, description: 'Oversee elite products and high-end deals.' }
-];
-
-const opportunityPool = [
-  { title: 'Market Alert', text: 'A limited investment opportunity appears. Do you want to try it?', yes: () => applyEventOutcome(Math.random() < 0.65 ? 320 : -180, 30, 'You jumped into the market and got a strong result.'), no: () => addHistory('You skipped the market alert.', 0) },
-  { title: 'Property Flip', text: 'A fixer-upper could be bought cheap. Take the risk?', yes: () => applyEventOutcome(Math.random() < 0.55 ? 700 : -250, 40, 'You bought the property and flipped it for a profit.'), no: () => addHistory('You let the property deal pass.', 0) },
-  { title: 'Fashion Collab', text: 'A style brand wants you to model a new line. Accept?', yes: () => applyEventOutcome(180, 25, 'You earned a fashion collab payout.'), no: () => addHistory('You declined the fashion collab.', 0) },
-  { title: 'Unexpected Gig', text: 'A freelance gig pays well but demands effort. Take it?', yes: () => applyEventOutcome(Math.random() < 0.8 ? 140 : -40, 20, 'You completed the gig and got paid.'), no: () => addHistory('You passed on the extra gig.', 0) },
-  { title: 'Crypto Tip', text: 'A colleague whispers a crypto tip - risky but tempting. Follow it?', yes: () => applyEventOutcome(Math.random() < 0.5 ? 380 : -220, 45, 'You risked crypto and the result changed your balance.'), no: () => addHistory('You ignored the crypto tip.', 0) }
-];
-
-const eventPool = [
+const randomEvents = [
   {
-    text: 'A surprise bonus arrives from extra freelance work. Do you accept the contract?',
-    yes: () => applyEventOutcome(200, 100),
-    no: () => addHistory('You kept your schedule free and missed $0 opportunity.', 0)
+    title: "Car Flip Lead",
+    text: "A mechanic found an underpriced car. Buy it and try to flip?",
+    yes: () => chanceOutcome(0.68, [420, 1100], [120, 360], 65, "Flipped a car"),
+    no: () => log("Skipped a risky car flip.", "neutral")
   },
   {
-    text: 'A sudden car repair cost appears. Pay now to keep your car safe?',
-    yes: () => applyEventOutcome(-120, 20),
-    no: () => applyEventOutcome(-50, 10)
+    title: "Market Crash",
+    text: "Crypto is crashing. Buy the dip?",
+    yes: () => chanceOutcome(0.44, [900, 3000], [280, 1200], 95, "Bought the dip"),
+    no: () => reward(80, 18, "Stayed calm and saved capital", "neutral")
   },
   {
-    text: 'A friend pitches a startup. Do you invest $300 for equity?',
-    yes: () => applyEventOutcome(Math.random() < 0.6 ? 450 : -300, 60),
-    no: () => addHistory('You stayed cautious and missed a startup chance.', 0)
+    title: "Rich Client",
+    text: "A wealthy client wants urgent work. Accept the job?",
+    yes: () => reward(rand(350, 900), 72, "Rich client paid you", "good"),
+    no: () => log("You protected your energy and passed.", "neutral")
   },
   {
-    text: 'A luxury watch trend spikes. Buy one to boost social status?',
-    yes: () => applyEventOutcome(-320, 40, 'You bought a watch and gained reputation.'),
-    no: () => addHistory('You skipped the flashy luxury purchase.', 0)
+    title: "Bad Contract",
+    text: "A contract looks suspicious but pays well. Sign it?",
+    yes: () => chanceOutcome(0.52, [700, 1800], [350, 900], 80, "Contract gamble"),
+    no: () => reward(120, 22, "Avoided a bad contract", "neutral")
   }
 ];
 
-const selectors = {
-  moneyDisplay: document.getElementById('moneyDisplay'),
-  statusDisplay: document.getElementById('statusDisplay'),
-  levelDisplay: document.getElementById('levelDisplay'),
-  xpDisplay: document.getElementById('xpDisplay'),
-  xpBar: document.getElementById('xpBar'),
-  netWorthDisplay: document.getElementById('netWorthDisplay'),
-  activityList: document.getElementById('activityList'),
-  carsValue: document.getElementById('carsValue'),
-  housesValue: document.getElementById('housesValue'),
-  fashionValue: document.getElementById('fashionValue'),
-  businessValue: document.getElementById('businessValue'),
-  eventText: document.getElementById('eventText'),
-  eventYes: document.getElementById('eventYes'),
-  eventNo: document.getElementById('eventNo'),
-  shopCategory: document.getElementById('shopCategory'),
-  shopList: document.getElementById('shopList'),
-  incomeTotal: document.getElementById('incomeTotal'),
-  expenseTotal: document.getElementById('expenseTotal'),
-  rankDisplay: document.getElementById('rankDisplay'),
-  passiveIncome: document.getElementById('passiveIncome'),
-  assetList: document.getElementById('assetList'),
-  currentJobDisplay: document.getElementById('currentJobDisplay'),
-  jobList: document.getElementById('jobList'),
-  characterAvatar: document.getElementById('characterAvatar'),
-  characterNameInput: document.getElementById('characterNameInput'),
-  opportunityOverlay: document.getElementById('opportunityOverlay'),
-  opportunityTitle: document.getElementById('opportunityTitle'),
-  opportunityText: document.getElementById('opportunityText'),
-  opportunityDesc: document.getElementById('opportunityDesc'),
-  opportunityAccept: document.getElementById('opportunityAccept'),
-  opportunityDecline: document.getElementById('opportunityDecline'),
-  saveBtn: document.getElementById('saveBtn')
+const state = {
+  money: 100,
+  displayedMoney: 100,
+  xp: 0,
+  level: 1,
+  totalEarned: 0,
+  totalSpent: 0,
+  actionsTaken: 0,
+  currentPage: "actionsPage",
+  shopCategory: "cars",
+  inventory: { cars: [], houses: [], fashion: [], businesses: [] },
+  completedMissions: [],
+  history: [],
+  lastDaily: 0,
+  lastSaved: Date.now(),
+  activeEvent: null
 };
 
-function loadGame() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    const parsed = JSON.parse(saved);
-    Object.assign(app, parsed);
+const el = {};
+
+document.addEventListener("DOMContentLoaded", init);
+
+function init() {
+  bindElements();
+  load();
+  applyOfflineIncome();
+  bindEvents();
+  renderAll();
+  setInterval(tickIdleIncome, 1000);
+  setInterval(save, 5000);
+}
+
+function bindElements() {
+  [
+    "gameRoot", "moneyDisplay", "rankDisplay", "levelDisplay", "idleDisplay", "netWorthDisplay", "xpText", "xpBar",
+    "dailyBtn", "actionList", "missionCount", "missionList", "shopList", "earnedDisplay", "spentDisplay",
+    "actionsDisplay", "ownedDisplay", "achievementList", "activityList", "resetBtn", "eventModal", "eventTag",
+    "eventTitle", "eventText", "eventYes", "eventNo", "toastHost"
+  ].forEach(id => { el[id] = document.getElementById(id); });
+}
+
+function bindEvents() {
+  document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => activatePage(btn.dataset.page)));
+  document.querySelectorAll(".shop-tab").forEach(btn => btn.addEventListener("click", () => {
+    state.shopCategory = btn.dataset.category;
+    tap(btn);
+    renderShop();
+  }));
+  el.actionList.addEventListener("click", event => {
+    const btn = event.target.closest("[data-action]");
+    if (btn) performAction(btn.dataset.action, btn);
+  });
+  el.shopList.addEventListener("click", event => {
+    const btn = event.target.closest("[data-buy]");
+    if (btn) buyItem(btn.dataset.buy, btn);
+  });
+  el.dailyBtn.addEventListener("click", () => claimDaily(true));
+  el.eventYes.addEventListener("click", () => resolveEvent(true));
+  el.eventNo.addEventListener("click", () => resolveEvent(false));
+  el.resetBtn.addEventListener("click", () => {
+    if (!confirm("Reset your Rise to Riches save?")) return;
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
+  });
+}
+
+function load() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!saved) return;
+    Object.assign(state, saved);
+    state.displayedMoney = state.money;
+    state.activeEvent = null;
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
   }
 }
 
-function saveGame() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(app));
+function save() {
+  state.lastSaved = Date.now();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function addHistory(message, xpGain = 0, silent = false) {
-  const entry = { text: message, time: new Date().toLocaleTimeString(), xpGain };
-  app.history.unshift(entry);
-  if (app.history.length > 10) app.history.pop();
-  if (!silent) updateUI();
-}
-
-function renderJobBoard() {
-  selectors.currentJobDisplay.textContent = app.currentJob
-    ? jobOffers.find(job => job.id === app.currentJob)?.name || 'Employed'
-    : 'No job yet';
-  selectors.jobList.innerHTML = jobOffers.map(job => {
-    const netWorth = getNetWorth();
-    const canApply = app.level >= job.reqLevel && netWorth >= job.reqNetWorth;
-    const isCurrent = app.currentJob === job.id;
-    return `<div class="rounded-3xl bg-slate-950/80 p-4">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <p class="text-sm uppercase tracking-[0.2em] text-slate-400">${job.name}</p>
-          <h3 class="mt-1 text-base font-semibold text-white">${job.description}</h3>
-          <p class="mt-2 text-[13px] text-slate-400">Requires level ${job.reqLevel} and $${job.reqNetWorth.toLocaleString()} net worth.</p>
-        </div>
-        <div class="text-right">
-          <p class="text-lg font-semibold text-emerald-300">$${job.salaryRange[0]}-${job.salaryRange[1]}</p>
-          <p class="mt-1 text-[11px] uppercase tracking-[0.2em] text-slate-500">+${job.xp} XP</p>
-        </div>
-      </div>
-      <button data-job="${job.id}" class="mt-4 w-full rounded-3xl px-4 py-3 text-sm font-semibold transition ${isCurrent ? 'bg-slate-700 text-slate-300 cursor-not-allowed' : canApply ? 'bg-emerald-500 text-slate-950 hover:bg-emerald-400' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}">${isCurrent ? 'Current Job' : canApply ? 'Apply' : 'Locked'}</button>
-    </div>`;
-  }).join('');
-}
-
-function applyJob(jobId) {
-  const job = jobOffers.find(entry => entry.id === jobId);
-  if (!job) return;
-  const netWorth = getNetWorth();
-  if (app.currentJob === job.id) {
-    addHistory(`You already have the job as ${job.name}.`, 0);
-    return;
+function applyOfflineIncome() {
+  const seconds = Math.min(7200, Math.floor((Date.now() - (state.lastSaved || Date.now())) / 1000));
+  const income = Math.floor(getIdleIncome() * seconds);
+  if (income > 0) {
+    state.money += income;
+    state.totalEarned += income;
+    log(`Idle empire earned ${money(income)} while away.`, "good");
   }
-  if (app.level < job.reqLevel || netWorth < job.reqNetWorth) {
-    addHistory(`You do not meet the requirements for ${job.name}.`, 0);
-    return;
-  }
-  app.currentJob = job.id;
-  addXP(job.xp);
-  addHistory(`You landed the job: ${job.name}!`, job.xp);
-  renderJobBoard();
-  saveGame();
 }
 
-function getCurrentJobSalary() {
-  if (!app.currentJob) return randomRange(25, 45);
-  const job = jobOffers.find(entry => entry.id === app.currentJob);
-  return job ? randomRange(job.salaryRange[0], job.salaryRange[1]) : randomRange(25, 45);
-}
+function performAction(actionId, btn) {
+  const action = actions.find(item => item.id === actionId);
+  if (!action || state.level < action.unlock) return;
+  tap(btn);
+  state.actionsTaken += 1;
 
-function showOpportunity(opportunity) {
-  app.opportunity = opportunity;
-  selectors.opportunityTitle.textContent = opportunity.title || 'Opportunity';
-  selectors.opportunityText.textContent = opportunity.text || 'A new opportunity appears.';
-  selectors.opportunityDesc.textContent = opportunity.description || 'Choose quickly or it may disappear.';
-  selectors.opportunityOverlay.classList.remove('hidden');
-}
-
-function hideOpportunity() {
-  selectors.opportunityOverlay.classList.add('hidden');
-  app.opportunity = null;
-}
-
-function triggerOpportunity() {
-  const chance = Math.random();
-  if (chance < 0.45) {
-    const opportunity = opportunityPool[Math.floor(Math.random() * opportunityPool.length)];
-    showOpportunity(opportunity);
-    selectors.eventText.textContent = 'A new opportunity is available above!';
+  const lost = action.risk && Math.random() < action.risk;
+  if (lost) {
+    const loss = Math.min(state.money, rand(action.loss[0], action.loss[1]));
+    spend(loss, `${action.title} failed`, action.xp);
+    play("loss");
   } else {
-    randomizeEvent();
+    const bonus = 1 + getIncomeBoost();
+    const amount = Math.floor(rand(action.reward[0], action.reward[1]) * bonus);
+    reward(amount, action.xp, action.title, "good");
+    spawnCoins(btn, amount > 1000 ? 5 : 3);
   }
+
+  maybeRandomEvent();
+  checkMissions();
+  renderAll();
+  save();
 }
 
-function updateCharacterPreview() {
-  const skinColors = {
-    light: 'bg-amber-200',
-    tan: 'bg-amber-500',
-    dark: 'bg-slate-700'
-  };
-  const outlineColors = {
-    casual: 'ring-emerald-400',
-    premium: 'ring-cyan-400',
-    luxury: 'ring-rose-400'
-  };
-  selectors.characterAvatar.className = `h-20 w-20 rounded-3xl ${skinColors[app.character.skin] || 'bg-amber-500'} ring-4 ${outlineColors[app.character.style] || 'ring-emerald-400'}`;
-  selectors.characterNameInput.value = app.character.name;
+function buyItem(itemId, btn) {
+  const category = state.shopCategory;
+  const item = shopItems[category].find(entry => entry.id === itemId);
+  if (!item || owns(category, item.id) || state.level < item.level) return;
+  if (state.money < item.price) {
+    flashLoss();
+    toast(`Need ${money(item.price - state.money)} more`, "bad");
+    play("loss");
+    return;
+  }
+
+  tap(btn);
+  state.money -= item.price;
+  state.totalSpent += item.price;
+  state.inventory[category].push(item.id);
+  addXP(item.xp);
+  log(`✨ You bought ${item.name}!`, "good");
+  toast(`✨ You bought ${item.name}!`, "good");
+  play(item.rarity === "Legendary" ? "level" : "success");
+  checkMissions();
+  renderAll();
+  save();
 }
 
-function setCharacterAttribute(attribute, value) {
-  app.character[attribute] = value;
-  addHistory(`Character updated: ${attribute} set to ${value}.`, 0);
-  updateCharacterPreview();
-  saveGame();
+function reward(amount, xp, label, tone = "good") {
+  state.money += amount;
+  state.totalEarned += amount;
+  addXP(xp);
+  log(`${label}: +${money(amount)} and +${xp} XP`, tone);
+  animateMoney();
+  play("coin");
 }
 
-function determineStatus() {
-  const netWorth = getNetWorth();
-  const match = statusRules.find(rule => netWorth >= rule.min);
-  app.status = match ? match.status : 'Poor';
+function spend(amount, label, xp = 0) {
+  state.money = Math.max(0, state.money - amount);
+  state.totalSpent += amount;
+  addXP(xp);
+  log(`${label}: -${money(amount)} but gained +${xp} XP`, "bad");
+  flashLoss();
+  animateMoney();
 }
 
 function addXP(amount) {
-  app.xp += amount;
-  while (app.xp >= xpToNextLevel()) {
-    app.xp -= xpToNextLevel();
-    app.level += 1;
-    addHistory(`You leveled up to ${app.level}! New opportunities unlocked.`, 0);
+  state.xp += amount;
+  while (state.xp >= xpNeeded()) {
+    state.xp -= xpNeeded();
+    state.level += 1;
+    const bonus = state.level * 125;
+    state.money += bonus;
+    state.totalEarned += bonus;
+    log(`LEVEL UP! Level ${state.level} reward: ${money(bonus)}`, "level");
+    toast(`🚀 Level ${state.level}! +${money(bonus)}`, "level");
+    play("level");
   }
 }
 
-function xpToNextLevel() {
-  return 100 + (app.level - 1) * 40;
+function xpNeeded() {
+  return 100 + (state.level - 1) * 55;
 }
 
-function applyEventOutcome(delta, xpGain, text = null) {
-  app.money += delta;
-  if (delta > 0) app.income += delta;
-  if (delta < 0) app.expenses += Math.abs(delta);
-  if (xpGain) addXP(xpGain);
-  addHistory(text || `Event resolved: ${delta >= 0 ? '+' : ''}${delta} dollars.`, xpGain);
-  randomizeEvent();
-  updateUI();
+function tickIdleIncome() {
+  const idle = getIdleIncome();
+  if (idle <= 0) return;
+  const amount = Math.max(1, Math.floor(idle));
+  state.money += amount;
+  state.totalEarned += amount;
+  animateMoney();
+  checkMissions(false);
+  renderHeader();
 }
 
-function randomizeEvent() {
-  const event = eventPool[Math.floor(Math.random() * eventPool.length)];
-  app.event = event;
-  selectors.eventText.textContent = event.text;
+function getIdleIncome() {
+  return Object.entries(state.inventory).reduce((sum, [category, ids]) => {
+    return sum + ids.reduce((catSum, id) => {
+      const item = shopItems[category].find(entry => entry.id === id);
+      return catSum + (item ? item.income : 0);
+    }, 0);
+  }, 0);
 }
 
-function earn(amount, label, xpGain) {
-  app.money += amount;
-  if (amount >= 0) {
-    app.income += amount;
+function getIncomeBoost() {
+  const fashionCount = state.inventory.fashion.length;
+  const carCount = state.inventory.cars.length;
+  return fashionCount * 0.03 + carCount * 0.02;
+}
+
+function getNetWorth(s = state) {
+  return Math.floor(s.money + Object.entries(s.inventory).reduce((sum, [category, ids]) => {
+    return sum + ids.reduce((catSum, id) => {
+      const item = shopItems[category].find(entry => entry.id === id);
+      return catSum + (item ? item.price : 0);
+    }, 0);
+  }, 0));
+}
+
+function getRank() {
+  return ranks.slice().reverse().find(rank => getNetWorth() >= rank.min).name;
+}
+
+function maybeRandomEvent() {
+  if (state.activeEvent || state.actionsTaken < 2) return;
+  if (Math.random() > 0.28) return;
+  state.activeEvent = randomEvents[rand(0, randomEvents.length - 1)].title;
+  const event = randomEvents.find(item => item.title === state.activeEvent);
+  el.eventTitle.textContent = event.title;
+  el.eventText.textContent = event.text;
+  el.eventModal.classList.remove("hidden");
+  el.eventModal.classList.add("flex");
+  play("success");
+}
+
+function resolveEvent(yes) {
+  const event = randomEvents.find(item => item.title === state.activeEvent);
+  el.eventModal.classList.add("hidden");
+  el.eventModal.classList.remove("flex");
+  state.activeEvent = null;
+  if (!event) return;
+  if (yes) event.yes();
+  else event.no();
+  checkMissions();
+  renderAll();
+  save();
+}
+
+function chanceOutcome(chance, gainRange, lossRange, xp, label) {
+  if (Math.random() < chance) {
+    reward(rand(gainRange[0], gainRange[1]), xp, label, "good");
   } else {
-    app.expenses += Math.abs(amount);
+    spend(Math.min(state.money, rand(lossRange[0], lossRange[1])), label, Math.floor(xp * 0.45));
   }
-  addXP(xpGain);
-  addHistory(`${label}: ${amount > 0 ? '+' : ''}${amount} dollars.`, xpGain);
-  updateUI();
 }
 
-function spend(amount, label) {
-  app.money -= amount;
-  app.expenses += amount;
-  addHistory(`${label}: -${amount} dollars.`, 0);
-  updateUI();
-}
-
-function performAction(action) {
-  switch (action) {
-    case 'work': {
-      const amount = getCurrentJobSalary();
-      earn(amount, 'Job salary', 18);
-      break;
-    }
-    case 'sideHustle': {
-      const success = Math.random() < 0.75;
-      const amount = success ? randomRange(50, 120) : -randomRange(10, 30);
-      earn(amount, success ? 'Side hustle payout' : 'Side hustle setback', success ? 22 : 7);
-      break;
-    }
-    case 'investStock': {
-      const amount = randomRange(100, 320);
-      if (app.money < amount) { addHistory('Not enough money to invest in stocks.', 0); return; }
-      spend(amount, 'Stock investment');
-      const gain = Math.random() < 0.8 ? Math.round(amount * randomRange(1.05, 1.35)) : Math.round(amount * randomRange(0.6, 0.9));
-      const profit = gain - amount;
-      earn(gain, 'Stock return', profit > 0 ? 30 : 10);
-      break;
-    }
-    case 'investCrypto': {
-      const amount = randomRange(60, 180);
-      if (app.money < amount) { addHistory('Not enough money to trade crypto.', 0); return; }
-      spend(amount, 'Crypto purchase');
-      const isWin = Math.random() < 0.55;
-      const gain = Math.round(amount * (isWin ? randomRange(1.4, 2.2) : randomRange(0.2, 0.8)));
-      earn(gain, 'Crypto trade', isWin ? 40 : 12);
-      break;
-    }
-    case 'investBusiness': {
-      const amount = randomRange(250, 520);
-      if (app.money < amount) { addHistory('Not enough capital for business investment.', 0); return; }
-      spend(amount, 'Business seed money');
-      const gain = Math.round(amount * randomRange(1.1, 1.5));
-      earn(gain, 'Business income', 35);
-      break;
-    }
+function claimDaily(manual = false) {
+  const now = Date.now();
+  if (now - state.lastDaily < DAY_MS) {
+    if (manual) toast("Daily reward already claimed", "neutral");
+    return;
   }
-  determineStatus();
-  if (Math.random() < 0.4) {
-    triggerOpportunity();
-  } else {
-    randomizeEvent();
-  }
-  saveGame();
+  const amount = 250 + state.level * 75 + Math.floor(getIdleIncome() * 120);
+  state.lastDaily = now;
+  reward(amount, 60, "Daily reward", "level");
+  toast(`🎁 Daily reward: ${money(amount)}`, "level");
+  renderAll();
+  save();
 }
 
-function randomRange(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function updateUI() {
-  determineStatus();
-  const netWorth = getNetWorth();
-  selectors.moneyDisplay.textContent = `$${app.money.toLocaleString()}`;
-  selectors.statusDisplay.textContent = app.status;
-  selectors.levelDisplay.textContent = app.level;
-  selectors.xpDisplay.textContent = `${app.xp} / ${xpToNextLevel()} XP`;
-  selectors.netWorthDisplay.textContent = `$${netWorth.toLocaleString()}`;
-  const progress = Math.min(100, Math.round((app.xp / xpToNextLevel()) * 100));
-  selectors.xpBar.style.width = `${progress}%`;
-  selectors.carsValue.textContent = `$${app.assets.cars.reduce((sum, item) => sum + item.price, 0)}`;
-  selectors.housesValue.textContent = `$${app.assets.houses.reduce((sum, item) => sum + item.price, 0)}`;
-  selectors.fashionValue.textContent = `$${app.assets.fashion.reduce((sum, item) => sum + item.price, 0)}`;
-  selectors.businessValue.textContent = `$${app.assets.businesses.reduce((sum, item) => sum + item.price, 0)}`;
-  selectors.incomeTotal.textContent = `$${app.income.toLocaleString()}`;
-  selectors.expenseTotal.textContent = `$${app.expenses.toLocaleString()}`;
-  selectors.rankDisplay.textContent = app.status;
-  const passive = app.assets.businesses.reduce((sum, item) => sum + item.bonus, 0);
-  selectors.passiveIncome.textContent = `$${passive} / mo`;
-  selectors.activityList.innerHTML = app.history.map(h => `<div class="rounded-3xl bg-slate-950/80 p-3"><p class="text-sm">${h.text}</p><p class="mt-1 text-[11px] text-slate-500">${h.time}${h.xpGain ? ` - +${h.xpGain} XP` : ''}</p></div>`).join('') || '<p class="text-slate-500">No activity yet.</p>';
-  selectors.assetList.innerHTML = buildAssetList();
-  renderJobBoard();
-  updateCharacterPreview();
-  renderShop();
-}
-
-function buildAssetList() {
-  const categories = ['cars', 'houses', 'fashion', 'businesses'];
-  const lines = [];
-  categories.forEach(cat => {
-    if (app.assets[cat].length) {
-      app.assets[cat].forEach(item => {
-        lines.push(`<div class="rounded-3xl bg-slate-950/80 p-3"><div class="flex items-center justify-between"><span>${item.name}</span><span class="text-emerald-300">$${item.price}</span></div><p class="mt-1 text-[12px] text-slate-500">${item.type}</p></div>`);
-      });
-    }
+function checkMissions(render = true) {
+  missions.forEach(mission => {
+    if (state.completedMissions.includes(mission.id) || !mission.done(state)) return;
+    state.completedMissions.push(mission.id);
+    state.money += mission.reward;
+    state.totalEarned += mission.reward;
+    addXP(mission.xp);
+    log(`Mission complete: ${mission.text}. Reward ${money(mission.reward)}!`, "level");
+    toast(`🏆 ${mission.text}`, "level");
+    play("level");
   });
-  return lines.join('') || '<p class="text-slate-500">No assets owned yet.</p>';
+  if (render) renderAll();
+}
+
+function renderAll() {
+  renderHeader();
+  renderActions();
+  renderShop();
+  renderStats();
+  renderMissions();
+  updateNav();
+}
+
+function renderHeader() {
+  animateMoney();
+  el.rankDisplay.textContent = getRank();
+  el.levelDisplay.textContent = state.level;
+  el.idleDisplay.textContent = `${money(getIdleIncome())}`;
+  el.netWorthDisplay.textContent = money(getNetWorth());
+  el.xpText.textContent = `${state.xp} / ${xpNeeded()} XP`;
+  el.xpBar.style.width = `${Math.min(100, Math.round((state.xp / xpNeeded()) * 100))}%`;
+  const canDaily = Date.now() - state.lastDaily >= DAY_MS;
+  el.dailyBtn.classList.toggle("opacity-50", !canDaily);
+  el.dailyBtn.textContent = canDaily ? "🎁 Daily" : "✅ Claimed";
+}
+
+function renderActions() {
+  el.actionList.innerHTML = actions.map(action => {
+    const locked = state.level < action.unlock;
+    return `
+      <button data-action="${action.id}" class="w-full rounded-[24px] border border-white/10 ${locked ? "bg-slate-900/55 opacity-60" : "glass"} p-4 text-left shadow-xl shadow-black/25 active:scale-[0.98]" ${locked ? "disabled" : ""}>
+        <div class="flex items-center gap-3">
+          <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-950/80 text-2xl">${action.icon}</div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="truncate font-black text-white">${action.title}</h3>
+              <span class="text-xs font-black ${action.risk > 0.4 ? "text-rose-300" : "text-emerald-300"}">${locked ? `LV ${action.unlock}` : `+${action.xp} XP`}</span>
+            </div>
+            <p class="mt-1 text-xs text-slate-400">${action.subtitle}</p>
+            <p class="mt-2 text-sm font-black text-emerald-200">${locked ? "Locked" : `${money(action.reward[0])} - ${money(action.reward[1])}`}</p>
+          </div>
+        </div>
+      </button>`;
+  }).join("");
 }
 
 function renderShop() {
-  selectors.shopCategory.textContent = capitalize(app.shopCategory);
-  const items = shopItems[app.shopCategory];
-  selectors.shopList.innerHTML = items.map(item => {
-    const unlocked = app.level >= item.level;
-    const owned = app.assets[app.shopCategory].some(asset => asset.id === item.id);
-    const priceText = owned ? 'Owned' : `$${item.price.toLocaleString()}`;
-    return `<div class="glass rounded-3xl border border-slate-800 p-4 shadow-xl shadow-slate-900/30">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <p class="text-sm uppercase tracking-[0.2em] text-slate-400">${item.type}</p>
-          <h3 class="mt-1 text-base font-semibold text-white">${item.name}</h3>
-          <p class="mt-2 text-sm text-slate-300">Requires level ${item.level}</p>
+  document.querySelectorAll(".shop-tab").forEach(btn => {
+    const active = btn.dataset.category === state.shopCategory;
+    btn.className = `shop-tab rounded-2xl px-2 py-3 text-xs font-bold ${active ? "bg-emerald-400 text-slate-950" : "bg-slate-900 text-slate-200"}`;
+  });
+  el.shopList.innerHTML = shopItems[state.shopCategory].map(item => {
+    const owned = owns(state.shopCategory, item.id);
+    const locked = state.level < item.level;
+    const canBuy = !owned && !locked && state.money >= item.price;
+    return `
+      <article class="glass rounded-[24px] border border-white/10 p-4 shadow-xl shadow-black/25">
+        <div class="flex items-start gap-3">
+          <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-950/80 text-3xl">${item.icon}</div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <h3 class="font-black text-white">${item.name}</h3>
+                <span class="mt-2 inline-flex rounded-full border px-2 py-1 text-[11px] font-black ${rarityStyles[item.rarity]}">${item.rarity}</span>
+              </div>
+              <p class="text-right text-sm font-black text-emerald-200">${money(item.price)}</p>
+            </div>
+            <p class="mt-3 text-xs text-slate-400">Idle income +${money(item.income)}/sec • Level ${item.level}</p>
+            <button data-buy="${item.id}" class="mt-3 w-full rounded-2xl px-4 py-3 text-sm font-black active:scale-95 ${owned ? "bg-slate-700 text-slate-300" : canBuy ? "bg-emerald-400 text-slate-950" : "bg-slate-800 text-slate-500"}" ${owned || locked ? "disabled" : ""}>
+              ${owned ? "Owned" : locked ? `Unlocks at Level ${item.level}` : "Buy Now"}
+            </button>
+          </div>
         </div>
-        <div class="text-right">
-          <p class="text-lg font-semibold text-emerald-300">${priceText}</p>
-          <p class="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">Bonus +${item.bonus}</p>
-        </div>
+      </article>`;
+  }).join("");
+}
+
+function renderMissions() {
+  el.missionCount.textContent = `${state.completedMissions.length}/${missions.length}`;
+  el.missionList.innerHTML = missions.map(mission => {
+    const done = state.completedMissions.includes(mission.id);
+    return `<div class="flex items-center justify-between gap-3 rounded-2xl bg-slate-950/70 p-3">
+      <div class="min-w-0">
+        <p class="truncate text-sm font-bold ${done ? "text-emerald-200" : "text-white"}">${done ? "✅" : "🎯"} ${mission.text}</p>
+        <p class="mt-1 text-xs text-slate-500">Reward ${money(mission.reward)} • +${mission.xp} XP</p>
       </div>
-      <button data-buy="${item.id}" class="mt-4 w-full rounded-3xl px-4 py-3 text-sm font-semibold transition ${owned ? 'bg-slate-700 text-slate-300 cursor-not-allowed' : unlocked ? 'bg-emerald-500 text-slate-950 hover:bg-emerald-400' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}">${owned ? 'Owned' : unlocked ? 'Buy' : 'Locked'}</button>
+      <span class="text-xs font-black ${done ? "text-emerald-300" : "text-slate-500"}">${done ? "Done" : "Open"}</span>
     </div>`;
-  }).join('');
+  }).join("");
 }
 
-function buyItem(itemId) {
-  const category = app.shopCategory;
-  const item = shopItems[category].find(entry => entry.id === itemId);
-  if (!item || app.level < item.level || app.assets[category].some(asset => asset.id === item.id)) return;
-  if (app.money < item.price) {
-    addHistory('Not enough money to purchase that item.', 0);
-    return;
-  }
-  spend(item.price, `Purchased ${item.name}`);
-  app.assets[category].push(item);
-  addXP(20);
-  determineStatus();
-  addHistory(`You bought ${item.name} and increased your status.`, 15);
-  renderShop();
-  updateUI();
-  saveGame();
-}
-
-function capitalize(text) {
-  return text.charAt(0).toUpperCase() + text.slice(1);
+function renderStats() {
+  el.earnedDisplay.textContent = money(state.totalEarned);
+  el.spentDisplay.textContent = money(state.totalSpent);
+  el.actionsDisplay.textContent = state.actionsTaken.toLocaleString();
+  el.ownedDisplay.textContent = Object.values(state.inventory).reduce((sum, ids) => sum + ids.length, 0);
+  el.achievementList.innerHTML = ranks.map(rank => {
+    const hit = getNetWorth() >= rank.min;
+    return `<div class="flex items-center justify-between rounded-2xl bg-slate-950/70 p-3">
+      <span class="text-sm font-bold">${hit ? "✅" : "🔒"} ${rank.name}</span>
+      <span class="text-xs font-black text-slate-400">${money(rank.min)}</span>
+    </div>`;
+  }).join("");
+  el.activityList.innerHTML = state.history.length
+    ? state.history.map(item => `<div class="rounded-2xl bg-slate-950/70 p-3 text-sm ${item.tone === "bad" ? "text-rose-200" : item.tone === "level" ? "text-amber-200" : "text-slate-300"}">${item.text}<p class="mt-1 text-[11px] text-slate-500">${item.time}</p></div>`).join("")
+    : `<p class="rounded-2xl bg-slate-950/70 p-3 text-sm text-slate-500">No activity yet.</p>`;
 }
 
 function activatePage(pageId) {
-  document.querySelectorAll('.page').forEach(page => page.classList.toggle('active', page.id === pageId));
+  state.currentPage = pageId;
+  document.querySelectorAll(".page").forEach(page => page.classList.toggle("active", page.id === pageId));
+  updateNav();
 }
 
-function initEventButtons() {
-  selectors.eventYes.addEventListener('click', () => {
-    if (app.event) app.event.yes();
-    randomizeEvent();
+function updateNav() {
+  document.querySelectorAll(".nav-btn").forEach(btn => {
+    const active = btn.dataset.page === state.currentPage;
+    btn.className = `nav-btn rounded-2xl px-3 py-3 text-sm font-black ${active ? "bg-emerald-400 text-slate-950" : "bg-slate-900 text-slate-200"}`;
   });
-  selectors.eventNo.addEventListener('click', () => {
-    if (app.event) app.event.no();
-    randomizeEvent();
-  });
-  selectors.opportunityAccept.addEventListener('click', () => {
-    if (app.opportunity) {
-      app.opportunity.yes();
-      hideOpportunity();
+}
+
+function animateMoney() {
+  const start = state.displayedMoney;
+  const end = state.money;
+  if (start === end) {
+    el.moneyDisplay.textContent = money(end);
+    return;
+  }
+  const duration = 420;
+  const started = performance.now();
+  function frame(now) {
+    const progress = Math.min(1, (now - started) / duration);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    state.displayedMoney = Math.round(start + (end - start) * eased);
+    el.moneyDisplay.textContent = money(state.displayedMoney);
+    if (progress < 1) requestAnimationFrame(frame);
+    else {
+      state.displayedMoney = end;
+      el.moneyDisplay.textContent = money(end);
     }
-  });
-  selectors.opportunityDecline.addEventListener('click', () => {
-    if (app.opportunity) {
-      app.opportunity.no();
-      hideOpportunity();
-    }
-  });
-  randomizeEvent();
+  }
+  el.moneyDisplay.classList.remove("gain-pop");
+  void el.moneyDisplay.offsetWidth;
+  el.moneyDisplay.classList.add("gain-pop");
+  requestAnimationFrame(frame);
 }
 
-function initActionButtons() {
-  document.querySelectorAll('[data-action]').forEach(button => {
-    button.addEventListener('click', () => performAction(button.getAttribute('data-action')));
-  });
+function tap(btn) {
+  btn.classList.remove("pressed");
+  void btn.offsetWidth;
+  btn.classList.add("pressed");
 }
 
-function initNav() {
-  document.querySelectorAll('.nav-btn').forEach(button => {
-    button.addEventListener('click', () => activatePage(button.getAttribute('data-page')));
-  });
+function flashLoss() {
+  document.body.classList.remove("flash-loss");
+  el.gameRoot.classList.remove("shake");
+  void document.body.offsetWidth;
+  document.body.classList.add("flash-loss");
+  el.gameRoot.classList.add("shake");
 }
 
-function initShopTabs() {
-  document.querySelectorAll('.shop-tab').forEach(button => {
-    button.addEventListener('click', () => {
-      app.shopCategory = button.getAttribute('data-category');
-      renderShop();
-    });
-  });
-}
-
-function initJobBoardEvents() {
-  selectors.jobList.addEventListener('click', event => {
-    const button = event.target.closest('button[data-job]');
-    if (!button) return;
-    applyJob(button.getAttribute('data-job'));
-  });
-}
-
-function initShopEvents() {
-  selectors.shopList.addEventListener('click', event => {
-    const button = event.target.closest('button[data-buy]');
-    if (!button) return;
-    buyItem(button.getAttribute('data-buy'));
-  });
-}
-
-function initCharacterControls() {
-  selectors.characterNameInput.addEventListener('input', event => {
-    app.character.name = event.target.value || 'Rico';
-    updateCharacterPreview();
-    saveGame();
-  });
-  document.querySelectorAll('.character-skin').forEach(button => {
-    button.addEventListener('click', () => setCharacterAttribute('skin', button.getAttribute('data-skin')));
-  });
-  document.querySelectorAll('.character-style').forEach(button => {
-    button.addEventListener('click', () => setCharacterAttribute('style', button.getAttribute('data-style')));
-  });
-}
-
-function initSaveButton() {
-  selectors.saveBtn.addEventListener('click', () => {
-    saveGame();
-    addHistory('Game saved manually.', 0);
-  });
-}
-
-function autoSaveLoop() {
-  setInterval(saveGame, 8000);
-}
-
-function applyPassiveIncome() {
-  const passive = app.assets.businesses.reduce((sum, item) => sum + item.bonus, 0);
-  if (passive > 0) {
-    earn(passive, 'Passive business income', 10);
+function spawnCoins(anchor, count) {
+  const rect = anchor.getBoundingClientRect();
+  for (let i = 0; i < count; i += 1) {
+    const coin = document.createElement("div");
+    coin.className = "coin text-2xl";
+    coin.textContent = "💰";
+    coin.style.left = `${rect.left + rect.width * Math.random()}px`;
+    coin.style.top = `${rect.top + rect.height * 0.35}px`;
+    document.body.appendChild(coin);
+    setTimeout(() => coin.remove(), 780);
   }
 }
 
-function startPassiveIncomeLoop() {
-  setInterval(applyPassiveIncome, 18000);
+function toast(text, tone = "good") {
+  const node = document.createElement("div");
+  const color = tone === "bad" ? "border-rose-400/30 bg-rose-500/15 text-rose-100" : tone === "level" ? "border-amber-300/40 bg-amber-300/15 text-amber-100" : "border-emerald-400/30 bg-emerald-400/15 text-emerald-100";
+  node.className = `toast rounded-2xl border px-4 py-3 text-sm font-black shadow-xl shadow-black/30 backdrop-blur-xl ${color}`;
+  node.textContent = text;
+  el.toastHost.appendChild(node);
+  setTimeout(() => node.remove(), 2400);
 }
 
-loadGame();
-initNav();
-initActionButtons();
-initShopTabs();
-initJobBoardEvents();
-initShopEvents();
-initCharacterControls();
-initEventButtons();
-initSaveButton();
-randomizeEvent();
-updateUI();
-autoSaveLoop();
-startPassiveIncomeLoop();
-saveGame();
+function log(text, tone = "neutral") {
+  state.history.unshift({ text, tone, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) });
+  state.history = state.history.slice(0, 18);
+}
+
+function owns(category, id) {
+  return state.inventory[category].includes(id);
+}
+
+function money(value) {
+  const absolute = Math.abs(value);
+  if (absolute >= 1000000000) return `$${(value / 1000000000).toFixed(2)}B`;
+  if (absolute >= 1000000) return `$${(value / 1000000).toFixed(2)}M`;
+  if (absolute >= 10000) return `$${Math.round(value).toLocaleString()}`;
+  if (absolute < 10 && value % 1 !== 0) return `$${value.toFixed(2)}`;
+  return `$${Math.round(value).toLocaleString()}`;
+}
+
+function rand(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function play(type) {
+  try {
+    const audio = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audio.createOscillator();
+    const gain = audio.createGain();
+    const notes = {
+      coin: [660, 0.06],
+      success: [880, 0.1],
+      level: [523, 0.18],
+      loss: [140, 0.16]
+    };
+    const [freq, seconds] = notes[type] || notes.coin;
+    osc.frequency.value = freq;
+    osc.type = type === "loss" ? "sawtooth" : "triangle";
+    gain.gain.setValueAtTime(0.001, audio.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.12, audio.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + seconds);
+    osc.connect(gain);
+    gain.connect(audio.destination);
+    osc.start();
+    osc.stop(audio.currentTime + seconds);
+  } catch {
+    // Sound is optional when browser audio is blocked.
+  }
+}

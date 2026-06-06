@@ -7,266 +7,210 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       :root { color-scheme: dark; }
-      body { margin: 0; min-height: 100vh; overflow-x: hidden; background: #090a0f; }
-      * { box-sizing: border-box; }
-      #app { min-height: 100vh; }
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      html, body { min-height: 100%; overflow-x: hidden; background: #060812; }
+      body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      button { touch-action: manipulation; }
       .page { display: none; }
-      .page.active { display: block; }
-      .glass { background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(18px); }
+      .page.active { display: block; animation: pageIn 220ms ease-out; }
+      .glass { background: rgba(13, 18, 32, 0.88); backdrop-filter: blur(18px); }
+      .soft { background: rgba(2, 6, 23, 0.64); }
+      .press { animation: press 180ms ease-out; }
+      .pop { animation: pop 420ms ease-out; }
+      .big-glow { animation: bigGlow 900ms ease-out; }
+      .shake { animation: shake 380ms ease-in-out; }
+      .loss-flash::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        pointer-events: none;
+        background: rgba(239, 68, 68, 0.24);
+        animation: fadeFlash 460ms ease-out forwards;
+      }
+      .float-coin {
+        position: fixed;
+        z-index: 95;
+        pointer-events: none;
+        animation: coinFly 820ms ease-out forwards;
+      }
+      @keyframes pageIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes press { 0% { transform: scale(1); } 45% { transform: scale(0.965); } 100% { transform: scale(1); } }
+      @keyframes pop { 0% { transform: scale(1); } 45% { transform: scale(1.06); } 100% { transform: scale(1); } }
+      @keyframes bigGlow { 0% { box-shadow: 0 0 0 rgba(52,211,153,0); } 35% { box-shadow: 0 0 42px rgba(52,211,153,.45); } 100% { box-shadow: 0 0 0 rgba(52,211,153,0); } }
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        20% { transform: translateX(-8px); }
+        40% { transform: translateX(7px); }
+        60% { transform: translateX(-5px); }
+        80% { transform: translateX(4px); }
+      }
+      @keyframes fadeFlash { from { opacity: 1; } to { opacity: 0; } }
+      @keyframes coinFly {
+        0% { opacity: 0; transform: translateY(0) scale(.75) rotate(0deg); }
+        20% { opacity: 1; }
+        100% { opacity: 0; transform: translateY(-90px) scale(1.25) rotate(18deg); }
+      }
     </style>
   </head>
   <body class="text-slate-100">
-    <div id="app" class="min-h-screen pb-28 px-4 pt-4 transition-all duration-300">
-      <header class="mb-4 flex items-center justify-between">
-        <div>
-          <p class="text-xs uppercase text-slate-400 tracking-[0.24em]">Rise to Riches</p>
-          <h1 class="mt-1 text-2xl font-semibold">Your Wealth Journey</h1>
+    <div id="gameRoot" class="relative mx-auto flex min-h-screen w-full max-w-[430px] flex-col overflow-hidden bg-[#080b15]">
+      <div class="pointer-events-none absolute inset-0 opacity-80">
+        <div class="absolute -top-32 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-emerald-400/16 blur-3xl"></div>
+        <div class="absolute top-80 -right-32 h-72 w-72 rounded-full bg-cyan-400/12 blur-3xl"></div>
+      </div>
+
+      <header class="relative z-10 px-4 pb-3 pt-[max(14px,env(safe-area-inset-top))]">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-300">Rise to Riches</p>
+            <h1 class="mt-1 truncate text-xl font-black text-white">Start poor. Build everything.</h1>
+          </div>
+          <button id="dailyBtn" class="shrink-0 rounded-2xl border border-amber-300/40 bg-amber-300/12 px-3 py-2 text-xs font-black text-amber-200 active:scale-95">🎁 Daily</button>
         </div>
-        <button id="saveBtn" class="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-semibold shadow-lg shadow-emerald-500/20">Save</button>
-      </header>
 
-      <main>
-        <section id="dashboardPage" class="page active space-y-4">
-          <div class="glass rounded-3xl border border-slate-800 p-4 shadow-xl shadow-slate-900/40">
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Balance</p>
-                <p id="moneyDisplay" class="mt-2 text-4xl font-bold text-white">$0</p>
-              </div>
-              <div class="rounded-3xl bg-slate-950/80 px-4 py-3 text-right">
-                <p class="text-xs uppercase tracking-[0.24em] text-slate-500">Rank</p>
-                <p id="statusDisplay" class="mt-1 text-lg font-semibold text-emerald-300">Poor</p>
-              </div>
+        <section id="dashCard" class="glass mt-4 rounded-[28px] border border-white/10 p-4 shadow-2xl shadow-black/40">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Cash</p>
+              <p id="moneyDisplay" class="mt-1 truncate text-4xl font-black text-white">$100</p>
             </div>
-            <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <div class="rounded-3xl bg-slate-950/80 p-3">
-                <p class="text-slate-400">Level</p>
-                <p id="levelDisplay" class="mt-1 text-lg font-semibold">1</p>
-              </div>
-              <div class="rounded-3xl bg-slate-950/80 p-3">
-                <p class="text-slate-400">Net Worth</p>
-                <p id="netWorthDisplay" class="mt-1 text-lg font-semibold">$0</p>
-              </div>
-            </div>
-            <div class="mt-4">
-              <div class="mb-2 flex items-center justify-between text-sm text-slate-400">
-                <span>Experience</span>
-                <span id="xpDisplay">0 / 100 XP</span>
-              </div>
-              <div class="h-3 overflow-hidden rounded-full bg-slate-800">
-                <div id="xpBar" class="h-full rounded-full bg-emerald-400 transition-all duration-500"></div>
-              </div>
+            <div class="rounded-2xl bg-slate-950/75 px-3 py-2 text-right">
+              <p class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Rank</p>
+              <p id="rankDisplay" class="mt-1 text-sm font-black text-emerald-300">Poor</p>
             </div>
           </div>
-
-          <div class="glass rounded-3xl border border-slate-800 p-4 shadow-xl shadow-slate-900/40">
-            <div class="mb-3 flex items-center justify-between">
-              <h2 class="text-lg font-semibold">Recent Activity</h2>
-              <span class="text-xs uppercase tracking-[0.24em] text-slate-500">Live Feed</span>
+          <div class="mt-4 grid grid-cols-3 gap-2">
+            <div class="soft rounded-2xl p-3">
+              <p class="text-[11px] text-slate-400">Level</p>
+              <p id="levelDisplay" class="mt-1 text-lg font-black">1</p>
             </div>
-            <div id="activityList" class="space-y-3 text-sm text-slate-300"></div>
+            <div class="soft rounded-2xl p-3">
+              <p class="text-[11px] text-slate-400">Idle/sec</p>
+              <p id="idleDisplay" class="mt-1 text-lg font-black text-cyan-200">$0</p>
+            </div>
+            <div class="soft rounded-2xl p-3">
+              <p class="text-[11px] text-slate-400">Net Worth</p>
+              <p id="netWorthDisplay" class="mt-1 text-lg font-black">$100</p>
+            </div>
           </div>
-
-          <div class="glass rounded-3xl border border-slate-800 p-4 shadow-xl shadow-slate-900/40">
-            <div class="mb-3 flex items-center justify-between">
-              <h2 class="text-lg font-semibold">Portfolio Summary</h2>
-              <span class="text-xs uppercase tracking-[0.24em] text-slate-500">Assets</span>
+          <div class="mt-4">
+            <div class="mb-2 flex items-center justify-between text-xs font-bold text-slate-400">
+              <span>XP Progress</span>
+              <span id="xpText">0 / 100 XP</span>
             </div>
-            <div class="space-y-3 text-sm text-slate-300">
-              <div class="flex items-center justify-between rounded-3xl bg-slate-950/80 p-3">
-                <span>Cars</span><span id="carsValue">$0</span>
-              </div>
-              <div class="flex items-center justify-between rounded-3xl bg-slate-950/80 p-3">
-                <span>Houses</span><span id="housesValue">$0</span>
-              </div>
-              <div class="flex items-center justify-between rounded-3xl bg-slate-950/80 p-3">
-                <span>Fashion</span><span id="fashionValue">$0</span>
-              </div>
-              <div class="flex items-center justify-between rounded-3xl bg-slate-950/80 p-3">
-                <span>Businesses</span><span id="businessValue">$0</span>
-              </div>
+            <div class="h-3 overflow-hidden rounded-full bg-slate-800">
+              <div id="xpBar" class="h-full w-0 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-300 transition-all duration-500"></div>
             </div>
           </div>
         </section>
+      </header>
 
-        <section id="actionsPage" class="page space-y-4">
-          <div class="glass rounded-3xl border border-slate-800 p-4 shadow-xl shadow-slate-900/40">
-            <h2 class="text-lg font-semibold">Take Action</h2>
-            <p class="mt-2 text-sm text-slate-400">Earn, invest, and take chances to grow your wealth.</p>
-            <div class="mt-4 space-y-3">
-              <button data-action="work" class="action-btn w-full rounded-3xl bg-slate-900 px-5 py-4 text-left shadow-lg shadow-slate-900/40 transition hover:bg-slate-800">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <p class="text-sm uppercase tracking-[0.24em] text-slate-400">Job</p>
-                    <p class="mt-1 font-semibold">Steady paycheck</p>
-                  </div>
-                  <span class="text-emerald-300">+$25 - $45</span>
-                </div>
-              </button>
-              <button data-action="sideHustle" class="action-btn w-full rounded-3xl bg-slate-900 px-5 py-4 text-left shadow-lg shadow-slate-900/40 transition hover:bg-slate-800">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <p class="text-sm uppercase tracking-[0.24em] text-slate-400">Side Hustle</p>
-                    <p class="mt-1 font-semibold">More risk, more reward</p>
-                  </div>
-                  <span class="text-emerald-300">+$50 - $120</span>
-                </div>
-              </button>
-              <button data-action="investStock" class="action-btn w-full rounded-3xl bg-slate-900 px-5 py-4 text-left shadow-lg shadow-slate-900/40 transition hover:bg-slate-800">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <p class="text-sm uppercase tracking-[0.24em] text-slate-400">Stocks</p>
-                    <p class="mt-1 font-semibold">Invest a small sum</p>
-                  </div>
-                  <span class="text-emerald-300">High chance gain</span>
-                </div>
-              </button>
-              <button data-action="investCrypto" class="action-btn w-full rounded-3xl bg-slate-900 px-5 py-4 text-left shadow-lg shadow-slate-900/40 transition hover:bg-slate-800">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <p class="text-sm uppercase tracking-[0.24em] text-slate-400">Crypto</p>
-                    <p class="mt-1 font-semibold">High risk, big swings</p>
-                  </div>
-                  <span class="text-amber-300">Win or lose fast</span>
-                </div>
-              </button>
-              <button data-action="investBusiness" class="action-btn w-full rounded-3xl bg-slate-900 px-5 py-4 text-left shadow-lg shadow-slate-900/40 transition hover:bg-slate-800">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <p class="text-sm uppercase tracking-[0.24em] text-slate-400">Business</p>
-                    <p class="mt-1 font-semibold">Long-term passive income</p>
-                  </div>
-                  <span class="text-cyan-300">Stable reward</span>
-                </div>
-              </button>
-            </div>
+      <main class="relative z-10 flex-1 overflow-y-auto px-4 pb-28">
+        <section id="actionsPage" class="page active space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-black">Actions</h2>
+            <span id="actionHint" class="text-xs font-bold text-slate-400">Many paths. Fast rewards.</span>
           </div>
-
-          <div class="glass rounded-3xl border border-slate-800 p-4 shadow-xl shadow-slate-900/40">
-            <div class="flex items-center justify-between">
+          <div id="jobPanel" class="glass rounded-[24px] border border-white/10 p-4"></div>
+          <div id="actionList" class="grid gap-3"></div>
+          <div class="glass rounded-[24px] border border-white/10 p-4">
+            <div class="flex items-center justify-between gap-3">
               <div>
-                <h2 class="text-lg font-semibold">Job Board</h2>
-                <p class="mt-1 text-sm text-slate-400">Apply for new jobs and unlock better salaries.</p>
+                <h3 class="font-black">Missions</h3>
+                <p class="mt-1 text-xs text-slate-400">Daily goals and long-term achievements pay bonuses.</p>
               </div>
-              <span class="text-sm font-semibold text-emerald-300" id="currentJobDisplay">No job yet</span>
+              <span id="missionCount" class="rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-black text-emerald-200">0/0</span>
             </div>
-            <div id="jobList" class="mt-4 space-y-3"></div>
-          </div>
-
-          <div class="glass rounded-3xl border border-slate-800 p-4 shadow-xl shadow-slate-900/40">
-            <h2 class="text-lg font-semibold">Life Event</h2>
-            <p id="eventText" class="mt-3 text-sm leading-6 text-slate-300">Take actions and watch for random events that shape your story.</p>
-            <div class="mt-4 flex flex-col gap-3 sm:flex-row">
-              <button id="eventYes" class="rounded-3xl bg-emerald-500 px-4 py-3 text-sm font-semibold transition hover:bg-emerald-400">Accept</button>
-              <button id="eventNo" class="rounded-3xl bg-slate-700 px-4 py-3 text-sm font-semibold transition hover:bg-slate-600">Decline</button>
-            </div>
+            <div id="missionList" class="mt-3 space-y-2"></div>
           </div>
         </section>
 
         <section id="shopPage" class="page space-y-4">
-          <div class="glass rounded-3xl border border-slate-800 p-4 shadow-xl shadow-slate-900/40">
-            <div class="mb-4 flex items-center justify-between">
-              <h2 class="text-lg font-semibold">Shop</h2>
-              <div class="flex gap-2 text-xs uppercase tracking-[0.24em] text-slate-400">
-                <span id="shopCategory" class="font-semibold">Cars</span>
-              </div>
+          <div class="sticky top-0 z-20 -mx-4 bg-[#080b15]/95 px-4 py-3 backdrop-blur-xl">
+            <div class="flex items-center justify-between">
+              <h2 class="text-lg font-black">Shop</h2>
+              <button id="mysteryBtn" class="rounded-2xl border border-fuchsia-300/40 bg-fuchsia-300/10 px-3 py-2 text-xs font-black text-fuchsia-200 active:scale-95">🎲 Box</button>
             </div>
-            <div class="grid grid-cols-3 gap-2">
-              <button class="shop-tab rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold transition hover:bg-slate-800" data-category="cars">Cars</button>
-              <button class="shop-tab rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold transition hover:bg-slate-800" data-category="houses">Houses</button>
-              <button class="shop-tab rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold transition hover:bg-slate-800" data-category="fashion">Fashion</button>
-              <button class="shop-tab col-span-3 rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold transition hover:bg-slate-800" data-category="businesses">Businesses</button>
+            <div class="mt-3 grid grid-cols-4 gap-2">
+              <button class="shop-tab rounded-2xl bg-slate-900 px-2 py-3 text-xs font-black" data-category="cars">🚗 Cars</button>
+              <button class="shop-tab rounded-2xl bg-slate-900 px-2 py-3 text-xs font-black" data-category="properties">🏠 Homes</button>
+              <button class="shop-tab rounded-2xl bg-slate-900 px-2 py-3 text-xs font-black" data-category="luxury">💎 Luxury</button>
+              <button class="shop-tab rounded-2xl bg-slate-900 px-2 py-3 text-xs font-black" data-category="special">⭐ Special</button>
             </div>
           </div>
-
           <div id="shopList" class="space-y-3"></div>
         </section>
 
-        <section id="profilePage" class="page space-y-4">
-          <div class="glass rounded-3xl border border-slate-800 p-4 shadow-xl shadow-slate-900/40">
-            <h2 class="text-lg font-semibold">Profile</h2>
-            <div class="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-300">
-              <div class="rounded-3xl bg-slate-950/80 p-3">
-                <p class="text-slate-400">Total Income</p>
-                <p id="incomeTotal" class="mt-1 text-lg font-semibold">$0</p>
-              </div>
-              <div class="rounded-3xl bg-slate-950/80 p-3">
-                <p class="text-slate-400">Total Expenses</p>
-                <p id="expenseTotal" class="mt-1 text-lg font-semibold">$0</p>
-              </div>
-              <div class="rounded-3xl bg-slate-950/80 p-3">
-                <p class="text-slate-400">Wealth Rank</p>
-                <p id="rankDisplay" class="mt-1 text-lg font-semibold">Poor</p>
-              </div>
-              <div class="rounded-3xl bg-slate-950/80 p-3">
-                <p class="text-slate-400">Passive Income</p>
-                <p id="passiveIncome" class="mt-1 text-lg font-semibold">$0 / mo</p>
-              </div>
-            </div>
+        <section id="businessPage" class="page space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-black">Businesses</h2>
+            <span id="businessSummary" class="text-xs font-bold text-slate-400">$0/sec</span>
           </div>
-
-          <div class="glass rounded-3xl border border-slate-800 p-4 shadow-xl shadow-slate-900/40">
-            <div class="flex items-center justify-between gap-4">
-              <div>
-                <h2 class="text-lg font-semibold">Character</h2>
-                <p class="mt-1 text-sm text-slate-400">Customize your appearance and style.</p>
-              </div>
-              <div id="characterAvatar" class="h-20 w-20 rounded-3xl bg-slate-900 ring-2 ring-emerald-400"></div>
-            </div>
-            <div class="mt-4 space-y-3 text-sm text-slate-300">
-              <div>
-                <label class="mb-2 block text-slate-400">Name</label>
-                <input id="characterNameInput" type="text" class="w-full rounded-3xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100 outline-none focus:border-emerald-400" placeholder="Your name" />
-              </div>
-              <div>
-                <p class="text-slate-400">Skin Tone</p>
-                <div class="mt-2 flex gap-2">
-                  <button type="button" class="character-skin rounded-2xl bg-amber-200 px-3 py-2 text-xs font-semibold text-slate-950" data-skin="light">Light</button>
-                  <button type="button" class="character-skin rounded-2xl bg-amber-600 px-3 py-2 text-xs font-semibold text-slate-950" data-skin="tan">Tan</button>
-                  <button type="button" class="character-skin rounded-2xl bg-slate-700 px-3 py-2 text-xs font-semibold text-white" data-skin="dark">Dark</button>
-                </div>
-              </div>
-              <div>
-                <p class="text-slate-400">Style</p>
-                <div class="mt-2 flex gap-2">
-                  <button type="button" class="character-style rounded-2xl bg-slate-700 px-3 py-2 text-xs font-semibold" data-style="casual">Casual</button>
-                  <button type="button" class="character-style rounded-2xl bg-slate-700 px-3 py-2 text-xs font-semibold" data-style="premium">Premium</button>
-                  <button type="button" class="character-style rounded-2xl bg-slate-700 px-3 py-2 text-xs font-semibold" data-style="luxury">Luxury</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="glass rounded-3xl border border-slate-800 p-4 shadow-xl shadow-slate-900/40">
-            <h2 class="text-lg font-semibold">Current Assets</h2>
-            <div class="mt-4 space-y-3 text-sm text-slate-300" id="assetList"></div>
+          <div id="businessList" class="space-y-3"></div>
+          <div class="glass rounded-[24px] border border-white/10 p-4">
+            <h3 class="font-black">Investments</h3>
+            <p class="mt-1 text-xs text-slate-400">Prices move every few seconds. Buy low, sell high, or get burned.</p>
+            <div id="investmentList" class="mt-3 space-y-3"></div>
           </div>
         </section>
+
+        <section id="profilePage" class="page space-y-4">
+          <div class="glass rounded-[24px] border border-white/10 p-4">
+            <h2 class="text-lg font-black">Profile</h2>
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <div class="soft rounded-2xl p-3">
+                <p class="text-xs text-slate-400">Total Earned</p>
+                <p id="earnedDisplay" class="mt-1 text-lg font-black text-emerald-200">$0</p>
+              </div>
+              <div class="soft rounded-2xl p-3">
+                <p class="text-xs text-slate-400">Total Spent</p>
+                <p id="spentDisplay" class="mt-1 text-lg font-black text-rose-200">$0</p>
+              </div>
+              <div class="soft rounded-2xl p-3">
+                <p class="text-xs text-slate-400">Actions</p>
+                <p id="actionsDisplay" class="mt-1 text-lg font-black">0</p>
+              </div>
+              <div class="soft rounded-2xl p-3">
+                <p class="text-xs text-slate-400">Owned Items</p>
+                <p id="ownedDisplay" class="mt-1 text-lg font-black">0</p>
+              </div>
+            </div>
+          </div>
+          <div class="glass rounded-[24px] border border-white/10 p-4">
+            <h3 class="font-black">Achievements</h3>
+            <div id="achievementList" class="mt-3 space-y-2"></div>
+          </div>
+          <div class="glass rounded-[24px] border border-white/10 p-4">
+            <h3 class="font-black">Activity Feed</h3>
+            <div id="activityList" class="mt-3 space-y-2"></div>
+          </div>
+          <button id="resetBtn" class="w-full rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm font-black text-rose-200 active:scale-95">Reset Save</button>
+        </section>
       </main>
-    </div>
 
-    <nav class="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800 bg-slate-950/95 px-4 py-3 backdrop-blur-xl">
-      <div class="mx-auto flex max-w-3xl items-center justify-between gap-2">
-        <button class="nav-btn flex-1 rounded-3xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-slate-100 transition hover:bg-slate-800" data-page="dashboardPage">Dashboard</button>
-        <button class="nav-btn flex-1 rounded-3xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-slate-100 transition hover:bg-slate-800" data-page="actionsPage">Actions</button>
-        <button class="nav-btn flex-1 rounded-3xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-slate-100 transition hover:bg-slate-800" data-page="shopPage">Shop</button>
-        <button class="nav-btn flex-1 rounded-3xl bg-slate-900 px-4 py-3 text-center text-sm font-semibold text-slate-100 transition hover:bg-slate-800" data-page="profilePage">Profile</button>
-      </div>
-    </nav>
-
-    <div id="opportunityOverlay" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/90 px-4 py-6">
-      <div class="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-2xl shadow-slate-950/80">
-        <div class="mb-3 flex items-center justify-between">
-          <p id="opportunityTitle" class="text-sm uppercase tracking-[0.24em] text-emerald-300">Opportunity</p>
-          <span id="opportunityBadge" class="rounded-full bg-emerald-500 px-3 py-1 text-[11px] font-semibold text-slate-950">New</span>
+      <nav class="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 border-t border-white/10 bg-slate-950/95 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+        <div class="grid grid-cols-4 gap-2">
+          <button class="nav-btn rounded-2xl bg-emerald-400 px-2 py-3 text-xs font-black text-slate-950" data-page="actionsPage">⚡ Actions</button>
+          <button class="nav-btn rounded-2xl bg-slate-900 px-2 py-3 text-xs font-black text-slate-200" data-page="shopPage">🛍️ Shop</button>
+          <button class="nav-btn rounded-2xl bg-slate-900 px-2 py-3 text-xs font-black text-slate-200" data-page="businessPage">🏢 Biz</button>
+          <button class="nav-btn rounded-2xl bg-slate-900 px-2 py-3 text-xs font-black text-slate-200" data-page="profilePage">📊 Profile</button>
         </div>
-        <h3 id="opportunityText" class="text-lg font-semibold text-white">A major opportunity appears.</h3>
-        <p id="opportunityDesc" class="mt-3 text-sm leading-6 text-slate-300">Decide quickly and watch your path change.</p>
-        <div class="mt-5 grid gap-3 sm:grid-cols-2">
-          <button id="opportunityAccept" class="rounded-3xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400">Accept</button>
-          <button id="opportunityDecline" class="rounded-3xl bg-slate-700 px-4 py-3 text-sm font-semibold transition hover:bg-slate-600">Decline</button>
+      </nav>
+
+      <div id="eventModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-950/88 px-4">
+        <div class="w-full max-w-sm rounded-[28px] border border-white/10 bg-slate-900 p-5 shadow-2xl shadow-black/60">
+          <p id="eventTag" class="text-xs font-black uppercase tracking-[0.2em] text-amber-300">Random Event</p>
+          <h3 id="eventTitle" class="mt-2 text-xl font-black text-white">Opportunity</h3>
+          <p id="eventText" class="mt-3 text-sm leading-6 text-slate-300"></p>
+          <div class="mt-5 grid grid-cols-2 gap-3">
+            <button id="eventYes" class="rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 active:scale-95">YES</button>
+            <button id="eventNo" class="rounded-2xl bg-slate-700 px-4 py-3 text-sm font-black text-white active:scale-95">NO</button>
+          </div>
         </div>
       </div>
+
+      <div id="toastHost" class="pointer-events-none fixed left-1/2 top-5 z-[95] flex w-full max-w-[430px] -translate-x-1/2 flex-col gap-2 px-4"></div>
     </div>
 
     <script src="app.js"></script>
